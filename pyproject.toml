@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lorenzo-beyond"
+version = "0.1.0"
+description = "Bring a D&D Beyond character's inventory into Lorenzo, as a LorenzoLedger file."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["dnd", "d&d", "dndbeyond", "lorenzo", "inventory", "ttrpg"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Games/Entertainment :: Role-Playing",
+  "Typing :: Typed",
+]
+dependencies = [
+  "httpx>=0.28",
+  "pydantic>=2.10",
+  "questionary>=2.1",
+  "rich>=14.0",
+  "typer>=0.16",
+]
+
+[project.scripts]
+lorenzo-beyond = "lorenzo_beyond.cli:main"
+lrnzo-ddb = "lorenzo_beyond.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ramsesoriginal/lorenzo-beyond"
+Issues = "https://github.com/ramsesoriginal/lorenzo-beyond/issues"
+Lorenzo = "https://github.com/ramsesoriginal/lorenzo"
+
+[dependency-groups]
+dev = ["mypy>=1.15", "pytest>=8.3", "pytest-cov>=6.0", "ruff>=0.11"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lorenzo_beyond"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "PT", "RUF"]
+ignore = ["PT018"]  # `assert a and b` reads better than two asserts in these small checks
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.coverage.run]
+source = ["src"]
