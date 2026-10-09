@@ -28,6 +28,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release
@@ -37,6 +38,36 @@ jobs:
           # A pull request made with the default token does not start CI. To have CI run on the
           # release pull request, add a personal access token as RELEASE_PLEASE_TOKEN.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+
+  # release-please bumps pyproject.toml, never uv.lock, which records the project's own version
+  # too, so every release pull request would fail `uv sync --locked`. (Its `extra-files` cannot
+  # edit uv.lock: tried, and it changed nothing.) This puts the regenerated lock on its branch.
+  sync-lockfile:
+    needs: release-please
+    if: needs.release-please.outputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+      - uses: astral-sh/setup-uv@v6
+      - name: Regenerate uv.lock if the version bump left it stale
+        env:
+          PR_BRANCH: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+        run: |
+          uv lock
+          if git diff --quiet -- uv.lock; then
+            echo "uv.lock already in sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore: sync uv.lock with release-please's version bump"
+          git push origin "HEAD:refs/heads/$PR_BRANCH"
 
   build:
     needs: release-please
