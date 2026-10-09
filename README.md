@@ -117,8 +117,10 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy
 item text replaced by synthetic text. `tests/conformance.py` is an independent reader of the
 ledger rules that every file the tool writes is held to.
 
-Releases: bump `version` in `pyproject.toml`, push a `vX.Y.Z` tag; the release workflow publishes to
-PyPI by trusted publishing.
+Releases are made by [release-please](https://github.com/googleapis/release-please): commits follow
+[Conventional Commits](https://www.conventionalcommits.org/), and a release pull request collects
+them (`feat` is a minor version, `fix` a patch, `feat!` a major). Merging it tags the release and
+publishes to PyPI by trusted publishing.
 
 ## License
 
