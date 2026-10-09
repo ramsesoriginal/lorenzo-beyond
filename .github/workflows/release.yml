@@ -28,7 +28,6 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
-      pr: ${{ steps.release.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release
@@ -40,23 +39,37 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
 
   # release-please bumps pyproject.toml, never uv.lock, which records the project's own version
-  # too, so every release pull request would fail `uv sync --locked`. (Its `extra-files` cannot
-  # edit uv.lock: tried, and it changed nothing.) This puts the regenerated lock on its branch.
+  # too, so a release pull request fails `uv sync --locked`. (Its `extra-files` cannot edit
+  # uv.lock: tried, and it changed nothing.) So after every run that did not make a release, the
+  # release pull request's branch, if there is one, gets the regenerated lock. It looks the
+  # branch up by name instead of reading release-please's `pr` output: that output is empty
+  # when the pull request already exists and needs no change, which is exactly when this is due.
   sync-lockfile:
     needs: release-please
-    if: needs.release-please.outputs.pr != ''
+    if: needs.release-please.outputs.release_created != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      RELEASE_BRANCH: release-please--branches--main--components--lorenzo-beyond
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
-      - uses: astral-sh/setup-uv@v6
+      - name: Is there a release pull request?
+        id: branch
+        run: |
+          if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" > /dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release branch; nothing to do."
+          fi
+      - if: steps.branch.outputs.exists == 'true'
+        run: git fetch origin "$RELEASE_BRANCH" && git checkout -B "$RELEASE_BRANCH" FETCH_HEAD
+      - if: steps.branch.outputs.exists == 'true'
+        uses: astral-sh/setup-uv@v6
       - name: Regenerate uv.lock if the version bump left it stale
-        env:
-          PR_BRANCH: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+        if: steps.branch.outputs.exists == 'true'
         run: |
           uv lock
           if git diff --quiet -- uv.lock; then
@@ -67,7 +80,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add uv.lock
           git commit -m "chore: sync uv.lock with release-please's version bump"
-          git push origin "HEAD:refs/heads/$PR_BRANCH"
+          git push origin "HEAD:refs/heads/$RELEASE_BRANCH"
 
   build:
     needs: release-please
