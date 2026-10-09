@@ -11,6 +11,14 @@ name: Release
 on:
   push:
     branches: [main]
+  # Publishes a release that already has a tag, if its run failed or was skipped. Run it from
+  # `main`, with the tag as release-please named it (for example lorenzo-beyond-v0.1.0).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build and publish"
+        required: true
+        type: string
 
 concurrency:
   group: release
@@ -84,15 +92,20 @@ jobs:
 
   build:
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: needs.release-please.outputs.release_created == 'true' || inputs.tag != ''
     runs-on: ubuntu-latest
+    env:
+      # release-please puts the component in the tag: lorenzo-beyond-v0.1.0
+      TAG: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ env.TAG }}
       - uses: astral-sh/setup-uv@v6
       - name: The tag is the version
-        run: test "v$(uv version --short)" = "${{ needs.release-please.outputs.tag_name }}"
+        run: |
+          [[ "$TAG" =~ v([0-9][^[:space:]]*)$ ]] || { echo "No version in tag $TAG"; exit 1; }
+          test "${BASH_REMATCH[1]}" = "$(uv version --short)"
       - run: uv sync --locked
       - run: uv run pytest
       - run: uv build
