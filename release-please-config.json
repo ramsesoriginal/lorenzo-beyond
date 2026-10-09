@@ -5,14 +5,7 @@
   "include-v-in-tag": true,
   "packages": {
     ".": {
-      "package-name": "lorenzo-beyond",
-      "extra-files": [
-        {
-          "type": "toml",
-          "path": "uv.lock",
-          "jsonpath": "$.package[?(@.name=='lorenzo-beyond')].version"
-        }
-      ]
+      "package-name": "lorenzo-beyond"
     }
   }
 }
